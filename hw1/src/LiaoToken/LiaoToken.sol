@@ -4,20 +4,18 @@ pragma solidity ^0.8.0;
 interface IERC20 {
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
-    function transfer(address to, uint256 amount) external returns (bool);
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address delegate, uint256 amount) external returns (bool);
+    function allowance(address owner, address delegate) external view returns (uint256);
 
     event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Approval(address indexed owner, address indexed delegate, uint256 value);
 }
 
 contract LiaoToken is IERC20 {
-    // TODO: you might need to declare several state variable here
-    mapping(address account => uint256) private _balances;
-    mapping(address account => bool) isClaim;
-
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
     uint256 private _totalSupply;
 
     string private _name;
@@ -25,9 +23,10 @@ contract LiaoToken is IERC20 {
 
     event Claim(address indexed user, uint256 indexed amount);
 
-    constructor(string memory name_, string memory symbol_) payable {
+    constructor(string memory name_, string memory symbol_) {
         _name = name_;
         _symbol = symbol_;
+        _totalSupply = 0; // Initialize total supply
     }
 
     function decimals() public pure returns (uint8) {
@@ -42,35 +41,53 @@ contract LiaoToken is IERC20 {
         return _symbol;
     }
 
-    function totalSupply() external view returns (uint256) {
+    function totalSupply() external view override returns (uint256) {
         return _totalSupply;
     }
 
-    function balanceOf(address account) external view returns (uint256) {
+    function balanceOf(address account) external view override returns (uint256) {
         return _balances[account];
     }
 
     function claim() external returns (bool) {
-        if (isClaim[msg.sender]) revert();
-        _balances[msg.sender] += 1 ether;
-        _totalSupply += 1 ether;
-        emit Claim(msg.sender, 1 ether);
+        require(_balances[msg.sender] == 0, "Claim already made.");
+        uint256 claimAmount = 1 ether;
+        _balances[msg.sender] += claimAmount;
+        _totalSupply += claimAmount;
+        emit Claim(msg.sender, claimAmount);
         return true;
     }
 
-    function transfer(address to, uint256 amount) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function transfer(address recipient, uint256 amount) external override returns (bool) {
+        require(_balances[msg.sender] >= amount, "Balance too low for transfer");
+        _balances[msg.sender] -= amount;
+        _balances[recipient] += amount;
+        emit Transfer(msg.sender, recipient, amount);
+        return true;
     }
 
-    function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) external override returns (bool) {
+        require(_allowances[sender][msg.sender] >= amount, "Allowance does not permit transfer");
+        require(_balances[sender] >= amount, "Balance too low for transfer");
+
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+        _allowances[sender][msg.sender] -= amount;
+        emit Transfer(sender, recipient, amount);
+        return true;
     }
 
-    function approve(address spender, uint256 amount) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function approve(address delegate, uint256 amount) external override returns (bool) {
+        _allowances[msg.sender][delegate] = amount;
+        emit Approval(msg.sender, delegate, amount);
+        return true;
     }
 
-    function allowance(address owner, address spender) public view returns (uint256) {
-        // TODO: please add your implementaiton here
+    function allowance(address owner, address delegate) external view override returns (uint256) {
+        return _allowances[owner][delegate];
     }
 }

